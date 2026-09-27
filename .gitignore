@@ -1,0 +1,15 @@
+__pycache__/
+﻿# 构建产物
+build/
+.gradle/
+.mappings/
+libs/
+tools/jdk25.zip
+tools/jdk-25*/
+# 生成的映射/调试产物（可由 tools/ 脚本重新生成）
+docs/mapping-raw.json
+docs/member-map.json
+docs/hierarchy.json
+docs/javap*.txt
+docs/jdk-path.txt
+tools/dbg*.py

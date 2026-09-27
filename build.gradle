@@ -1,70 +1,68 @@
 plugins {
-    id "fabric-loom" version "1.8-SNAPSHOT"
+    id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'
 }
 
-
-archivesBaseName = project.archives_base_name
+base {
+    archivesName = project.archives_base_name
+}
 version = project.mod_version
-minecraft_version = project.minecraft_version
 group = project.maven_group
 
 repositories {
-    exclusiveContent {
-        forRepository {
-            maven {
-                name = "Modrinth"
-                url = "https://api.modrinth.com/maven"
-            }
-        }
-        filter {
-            includeGroup "maven.modrinth"
-        }
+    // 国内镜像优先（mavenCentral 直连很慢）
+    maven {
+        name = 'AliyunPublic'
+        url = 'https://maven.aliyun.com/repository/public'
     }
     maven {
-        name = "Meteor Dev Releases"
-        url = "https://maven.meteordev.org/releases"
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
     }
     maven {
-        name = "Meteor Dev Snapshots"
-        url = "https://maven.meteordev.org/snapshots"
+        name = 'Meteor Dev Releases'
+        url = 'https://maven.meteordev.org/releases'
+    }
+    maven {
+        name = 'Meteor Dev Snapshots'
+        url = 'https://maven.meteordev.org/snapshots'
+    }
+    mavenCentral()
+}
+
+dependencies {
+    // 26.1 起 Minecraft 未混淆：没有 mappings 行，mod 依赖也不再 remap（modImplementation -> implementation）
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    // Meteor Client
+    implementation "meteordevelopment:meteor-client:${project.meteor_version}"
+    // Baritone（Meteor fork，编译期）
+    compileOnly "meteordevelopment:baritone:${project.baritone_version}"
+
+    // Xaero 三件套（编译期，运行期玩家自带）
+    compileOnly "maven.modrinth:xaeros-minimap:${project.xaeros_minimap_version}"
+    compileOnly "maven.modrinth:xaeros-world-map:${project.xaeros_worldmap_version}"
+    compileOnly "maven.modrinth:xaeroplus:${project.xaeroplus_version}"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
 loom {
-    accessWidenerPath = file("src/main/resources/milkymod.accesswidener")
-}
-
-dependencies {
-    // Fabric
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-
-    // Meteor
-    modImplementation "meteordevelopment:meteor-client:${project.meteor_version}"
-    // XaeroPlus
-    modImplementation "maven.modrinth:xaeroplus:${project.xaeroplus_version}"
-    // XaeroWorldMap
-    modImplementation "maven.modrinth:xaeros-world-map:${project.xaeros_worldmap_version}"
-    // XaeroMinimap
-    modImplementation "maven.modrinth:xaeros-minimap:${project.xaeros_minimap_version}"
-    // lenni
-    modImplementation "net.lenni0451:LambdaEvents:2.4.2"
-    modImplementation "com.github.ben-manes.caffeine:caffeine:3.1.8"
-
-    modCompileOnly "meteordevelopment:baritone:${project.baritone_version}"
+    accessWidenerPath = file('src/main/resources/milkymod.accesswidener')
 }
 
 processResources {
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version,
-            "mc_version": project.property("minecraft_version"),
-            "xp_version": project.property("xaeroplus_version"),
-            "xwm_version": project.property("xaeros_worldmap_version"),
-            "xmm_version": project.property("xaeros_minimap_version")
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version,
+            'mc_version': project.property('minecraft_version'),
+            'loader_version': project.property('loader_version')
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.encoding("UTF-8")
+    options.encoding = 'UTF-8'
 }

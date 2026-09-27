@@ -8,10 +8,10 @@ import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.orbit.EventHandler;
 import meteordevelopment.orbit.EventPriority;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerInput;
 
 public class InHand extends Module {
     public enum Mode { MainHand, OffHand, Both }
@@ -29,7 +29,7 @@ public class InHand extends Module {
     private final Setting<Item> mainHandItem = sgGeneral.add(new ItemSetting.Builder()
         .name("main-hand-item")
         .description("Item to keep in your main hand.")
-        .defaultValue(net.minecraft.item.Items.COMMAND_BLOCK)
+        .defaultValue(net.minecraft.world.item.Items.COMMAND_BLOCK)
         .visible(() -> mode.get() == Mode.MainHand || mode.get() == Mode.Both)
         .build()
     );
@@ -65,7 +65,7 @@ public class InHand extends Module {
     private final Setting<Item> offHandItem = sgGeneral.add(new ItemSetting.Builder()
         .name("off-hand-item")
         .description("Item to keep in your off hand.")
-        .defaultValue(net.minecraft.item.Items.BARRIER)
+        .defaultValue(net.minecraft.world.item.Items.BARRIER)
         .visible(() -> mode.get() == Mode.OffHand || mode.get() == Mode.Both)
         .build()
     );
@@ -108,7 +108,7 @@ public class InHand extends Module {
     private static boolean passesDurability(ItemStack stack, DurabilityFilter filter, int thresholdPercent) {
         int max = stack.getMaxDamage();
         if (max <= 0) return true;
-        int damage = stack.getDamage();
+        int damage = stack.getDamageValue();
         int remaining = Math.max(0, max - damage);
         int remainingPct = (int) Math.round(remaining * 100.0 / max);
         return switch (filter) {
@@ -128,7 +128,7 @@ public class InHand extends Module {
 
     private void tryStashMainhandIfFilterNotSatisfied(Item target, DurabilityFilter filter, int threshold) {
         if (filter == DurabilityFilter.Off) return;
-        ItemStack cur = mc.player.getMainHandStack();
+        ItemStack cur = mc.player.getMainHandItem();
         if (cur.isEmpty() || cur.getItem() != target) return;
         int max = cur.getMaxDamage();
         if (max <= 0) return;
@@ -137,13 +137,13 @@ public class InHand extends Module {
         if (candidate.found()) return;
         FindItemResult empty = InvUtils.findEmpty();
         if (empty.found()) {
-            InvUtils.move().fromHotbar(mc.player.getInventory().selectedSlot).to(empty.slot());
+            InvUtils.move().fromHotbar(mc.player.getInventory().getSelectedSlot()).to(empty.slot());
         }
     }
 
     private void tryStashOffhandIfFilterNotSatisfied(Item target, DurabilityFilter filter, int threshold) {
         if (filter == DurabilityFilter.Off) return;
-        ItemStack cur = mc.player.getOffHandStack();
+        ItemStack cur = mc.player.getOffhandItem();
         if (cur.isEmpty() || cur.getItem() != target) return;
         int max = cur.getMaxDamage();
         if (max <= 0) return;
@@ -170,7 +170,7 @@ public class InHand extends Module {
                 DurabilityFilter filter = mainHandDurMode.get();
                 int threshold = mainHandDurThreshold.get();
 
-                ItemStack current = mc.player.getMainHandStack();
+                ItemStack current = mc.player.getMainHandItem();
                 boolean currentOk = isDesired(current, target, filter, threshold);
 
                 if (!currentOk) {
@@ -199,7 +199,7 @@ public class InHand extends Module {
                 DurabilityFilter filter = offHandDurMode.get();
                 int threshold = offHandDurThreshold.get();
 
-                ItemStack current = mc.player.getOffHandStack();
+                ItemStack current = mc.player.getOffhandItem();
                 boolean currentOk = isDesired(current, target, filter, threshold);
 
                 if (!currentOk) {
@@ -226,7 +226,7 @@ public class InHand extends Module {
 
         if (mode.get() == Mode.MainHand || mode.get() == Mode.Both) {
             FindItemResult main = InvUtils.find(mainHandItem.get());
-            handInfoBuilder.append(mainHandItem.get().getName().getString())
+            handInfoBuilder.append(new ItemStack(mainHandItem.get()).getHoverName().getString())
                 .append("*")
                 .append(main.count());
         }
@@ -234,7 +234,7 @@ public class InHand extends Module {
         if (mode.get() == Mode.OffHand || mode.get() == Mode.Both) {
             if (handInfoBuilder.length() > 0) handInfoBuilder.append(" ");
             FindItemResult off = InvUtils.find(offHandItem.get());
-            handInfoBuilder.append(offHandItem.get().getName().getString())
+            handInfoBuilder.append(new ItemStack(offHandItem.get()).getHoverName().getString())
                 .append("*")
                 .append(off.count());
         }
@@ -245,19 +245,19 @@ public class InHand extends Module {
     private boolean bringToSelectedViaSwap(FindItemResult it) {
         if (!it.found()) return false;
 
-        int selected = mc.player.getInventory().selectedSlot;
+        int selected = mc.player.getInventory().getSelectedSlot();
         if (it.isHotbar()) {
             InvUtils.swap(it.slot(), true);
             return true;
         }
 
-        ScreenHandler h = mc.player.playerScreenHandler;
+        AbstractContainerMenu h = mc.player.inventoryMenu;
         int selectedContainerSlot = 36 + selected;
 
         try {
-            mc.interactionManager.clickSlot(h.syncId, it.slot(), 0, SlotActionType.PICKUP, mc.player);
-            mc.interactionManager.clickSlot(h.syncId, selectedContainerSlot, 0, SlotActionType.PICKUP, mc.player);
-            mc.interactionManager.clickSlot(h.syncId, it.slot(), 0, SlotActionType.PICKUP, mc.player);
+            mc.gameMode.handleContainerInput(h.containerId, it.slot(), 0, ContainerInput.PICKUP, mc.player);
+            mc.gameMode.handleContainerInput(h.containerId, selectedContainerSlot, 0, ContainerInput.PICKUP, mc.player);
+            mc.gameMode.handleContainerInput(h.containerId, it.slot(), 0, ContainerInput.PICKUP, mc.player);
             return true;
         } catch (Exception ex) {
             return false;

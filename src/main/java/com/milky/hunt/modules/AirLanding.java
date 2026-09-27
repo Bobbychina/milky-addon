@@ -13,27 +13,27 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractItemC2SPacket;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.biome.Biome;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.Holder;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.biome.Biome;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -228,7 +228,7 @@ public class AirLanding extends Module {
 
     @Override
     public void onDeactivate() {
-        try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+        try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
     }
 
     @Override
@@ -237,7 +237,7 @@ public class AirLanding extends Module {
 
         lastVy = 0.0;
         cooldown = 0;
-        try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+        try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
         queue.clear();
         basePos = null;
         delayTimer = 0;
@@ -267,17 +267,17 @@ public class AirLanding extends Module {
     @Override
     public String getInfoString() {
         if (mc == null || mc.player == null) return null;
-        return String.format("state=%s vy=%.3f", phase.name(), mc.player.getVelocity().y);
+        return String.format("state=%s vy=%.3f", phase.name(), mc.player.getDeltaMovement().y);
     }
 
     @EventHandler
     private void onTick(TickEvent.Pre event) {
         if (mc == null) return;
-        ClientPlayerEntity p = mc.player;
-        if (p == null || mc.world == null) return;
+        LocalPlayer p = mc.player;
+        if (p == null || mc.level == null) return;
 
         if (phase != Phase.CENTERING) {
-            try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+            try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
         }
 
         if (cooldown > 0) cooldown--;
@@ -286,8 +286,8 @@ public class AirLanding extends Module {
 
         if (lockMainhand.get() && preferredBlockSlot >= 0 && (phase == Phase.PLACE_FOOT || phase == Phase.PLACE_REST || !queue.isEmpty())) {
             if (preferredBlockSlot < 9) {
-                ItemStack s = p.getInventory().getStack(preferredBlockSlot);
-                if (isDesiredBlockItem(s)) p.getInventory().selectedSlot = preferredBlockSlot;
+                ItemStack s = p.getInventory().getItem(preferredBlockSlot);
+                if (isDesiredBlockItem(s)) p.getInventory().setSelectedSlot(preferredBlockSlot);
                 else preferredBlockSlot = -1;
             }
         }
@@ -299,8 +299,8 @@ public class AirLanding extends Module {
                 return;
             }
 
-            if (!p.isOnGround()) {
-                try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+            if (!p.onGround()) {
+                try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
                 return;
             }
             double tx = footPos.getX() + 0.5;
@@ -312,9 +312,9 @@ public class AirLanding extends Module {
             double dz = tz - cz;
 
             if (Math.abs(dx) <= CENTER_EPS && Math.abs(dz) <= CENTER_EPS) {
-                try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+                try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
                 if (centerKeepsQueue) {
-                try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+                try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
                 phase = Phase.PLACE_REST;
                 centerKeepsQueue = false;
                 return;
@@ -325,9 +325,9 @@ public class AirLanding extends Module {
 
             centeringTicks++;
             if (centeringTicks > CENTER_MAX_TICKS) {
-                try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+                try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
                 if (centerKeepsQueue) {
-                try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+                try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
                 phase = Phase.PLACE_REST;
                 centerKeepsQueue = false;
                 return;
@@ -338,9 +338,9 @@ public class AirLanding extends Module {
 
             double dist = Math.hypot(dx, dz);
             if (dist < 1e-6) {
-                try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+                try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
                 if (centerKeepsQueue) {
-                try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+                try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
                 phase = Phase.PLACE_REST;
                 centerKeepsQueue = false;
                 return;
@@ -351,8 +351,8 @@ public class AirLanding extends Module {
 
             float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
 
-            p.setYaw(yaw);
-            try { mc.options.forwardKey.setPressed(true); } catch (Throwable ignored) {}
+            p.setYRot(yaw);
+            try { mc.options.keyUp.setDown(true); } catch (Throwable ignored) {}
 
             return;
         }
@@ -414,7 +414,7 @@ public class AirLanding extends Module {
 
             if (phase == Phase.PLACE_REST) {
                 if (footPos == null || !isTargetBlock(footPos)) { failToRecover(); return; }
-                if (!p.isOnGround()) return;
+                if (!p.onGround()) return;
                 if (!isCenteredOnFoot()) { enterCentering(true); return; }
             }
 
@@ -496,8 +496,8 @@ public class AirLanding extends Module {
                 if (openRetryTimer > 0) {
                     openRetryTimer--;
                 } else {
-                    p.networkHandler.sendPacket(new ClientCommandC2SPacket(
-                        p, ClientCommandC2SPacket.Mode.START_FALL_FLYING
+                    p.connection.send(new ServerboundPlayerCommandPacket(
+                        p, ServerboundPlayerCommandPacket.Action.START_FALL_FLYING
                     ));
                     openRetryTimer = Math.max(1, elytraOpenRetryTicks.get());
                 }
@@ -510,7 +510,7 @@ public class AirLanding extends Module {
                             if (moveRocketToHotbar(target)) hotbarIdx = target;
                         }
                         if (hotbarIdx >= 0) {
-                            p.getInventory().selectedSlot = hotbarIdx;
+                            p.getInventory().setSelectedSlot(hotbarIdx);
                             rocketSlot = hotbarIdx;
                             rocketArmed = true;
                         } else {
@@ -519,9 +519,9 @@ public class AirLanding extends Module {
                     }
 
                     if (!burnUseSent) {
-                        int seq = p.currentScreenHandler.getRevision() + 1;
-                        p.networkHandler.sendPacket(new PlayerInteractItemC2SPacket(
-                            Hand.MAIN_HAND, seq, p.getYaw(), p.getPitch()
+                        int seq = p.containerMenu.getStateId() + 1;
+                        p.connection.send(new ServerboundUseItemPacket(
+                            InteractionHand.MAIN_HAND, seq, p.getYRot(), p.getXRot()
                         ));
                         lastRocketCount = countRocketsInInventory();
                         rocketConsumeWait = 4;
@@ -536,7 +536,7 @@ public class AirLanding extends Module {
                             if (lastRocketCount >= 0 && now >= 0 && now < lastRocketCount) {
                                 burnFired = true;
                                 if (ensureBlockInMainHand()) {
-                                    preferredBlockSlot = p.getInventory().selectedSlot;
+                                    preferredBlockSlot = p.getInventory().getSelectedSlot();
                                 }
                                 phase = Phase.PLACE_READY;
                             } else {
@@ -551,15 +551,15 @@ public class AirLanding extends Module {
             case PLACE_READY -> {
                 if (preferredBlockSlot < 0) {
                     if (ensureBlockInMainHand()) {
-                        preferredBlockSlot = p.getInventory().selectedSlot;
+                        preferredBlockSlot = p.getInventory().getSelectedSlot();
                     }
                 }
-                double vy = p.getVelocity().y;
+                double vy = p.getDeltaMovement().y;
                 boolean turning = lastVy > 0.0 && Math.abs(vy) <= epsilon.get();
                 lastVy = vy;
 
                 if (cooldown == 0 && turning) {
-                    basePos = p.getBlockPos().down();
+                    basePos = p.blockPosition().below();
                     beginFootPlacement(basePos);
                     cooldown = 3;
                 }
@@ -598,7 +598,7 @@ public class AirLanding extends Module {
     }
 
     private void startRestPlacement() {
-        try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+        try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
         if (phase == Phase.PLACE_REST) return;
         queue.clear();
         delayTimer = 0;
@@ -607,7 +607,7 @@ public class AirLanding extends Module {
     }
 
     private boolean verifyAndRepairRest() {
-        if (mc.world == null) return false;
+        if (mc.level == null) return false;
 
         boolean ok = true;
         boolean hasMissing = false;
@@ -638,12 +638,12 @@ public class AirLanding extends Module {
     }
 
     private boolean isTargetBlock(BlockPos pos) {
-        if (mc == null || mc.world == null) return false;
-        return mc.world.getBlockState(pos).isOf(block.get());
+        if (mc == null || mc.level == null) return false;
+        return mc.level.getBlockState(pos).is(block.get());
     }
 
     private void failToRecover() {
-        try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+        try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
         queue.clear();
         delayTimer = 0;
 
@@ -672,7 +672,7 @@ public class AirLanding extends Module {
     }
 
     private void finishPlacement() {
-        try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+        try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
         footPos = null;
         restOrder = Collections.emptyList();
 
@@ -691,24 +691,22 @@ public class AirLanding extends Module {
     }
 
     private boolean isAllowedBiomeHere() {
-        if (mc.world == null || mc.player == null) return false;
+        if (mc.level == null || mc.player == null) return false;
 
         final Set<String> allowed = parseBiomeIds(biomeIds.get());
         if (allowed.isEmpty()) return true;
 
-        BlockPos playerPos = mc.player.getBlockPos();
+        BlockPos playerPos = mc.player.blockPosition();
         int r = Math.max(0, biomeScanRadius.get());
 
         for (int dz = -r; dz <= r; dz++) {
             for (int dx = -r; dx <= r; dx++) {
-                BlockPos surface = mc.world.getTopPosition(
-                    Heightmap.Type.MOTION_BLOCKING_NO_LEAVES,
-                    new BlockPos(playerPos.getX() + dx, 0, playerPos.getZ() + dz)
-                );
-                RegistryEntry<Biome> entry = mc.world.getBiome(surface);
-                Optional<RegistryKey<Biome>> key = entry.getKey();
+                int surfaceY = mc.level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, playerPos.getX() + dx, playerPos.getZ() + dz);
+                BlockPos surface = new BlockPos(playerPos.getX() + dx, surfaceY, playerPos.getZ() + dz);
+                Holder<Biome> entry = mc.level.getBiome(surface);
+                Optional<ResourceKey<Biome>> key = entry.unwrapKey();
                 if (key.isPresent()) {
-                    Identifier id = key.get().getValue();
+                    Identifier id = key.get().identifier();
                     if (allowed.contains(id.toString().toLowerCase(Locale.ROOT))) {
                         return true;
                     }
@@ -728,15 +726,15 @@ public class AirLanding extends Module {
     }
 
     private void forcePitchUp() {
-        if (mc.player != null) mc.player.setPitch(-90f);
+        if (mc.player != null) mc.player.setXRot(-90f);
     }
 
     private static final int ARMOR_CHEST_INDEX = 2;
 
     private boolean unequipElytraToHotbar() {
         if (mc.player == null) return false;
-        ItemStack chest = mc.player.getInventory().getArmorStack(ARMOR_CHEST_INDEX);
-        if (chest == null || chest.isEmpty() || !chest.isOf(Items.ELYTRA)) return true;
+        ItemStack chest = mc.player.getInventory().getItem(36 + ARMOR_CHEST_INDEX);
+        if (chest == null || chest.isEmpty() || !chest.is(Items.ELYTRA)) return true;
         int target = getFreeHotbarSlotExcluding(-1);
         InvUtils.move().fromArmor(ARMOR_CHEST_INDEX).toHotbar(target);
         return true;
@@ -744,8 +742,8 @@ public class AirLanding extends Module {
 
     private boolean equipElytra() {
         if (mc.player == null) return false;
-        ItemStack chest = mc.player.getInventory().getArmorStack(ARMOR_CHEST_INDEX);
-        if (chest != null && !chest.isEmpty() && chest.isOf(Items.ELYTRA)) return true;
+        ItemStack chest = mc.player.getInventory().getItem(36 + ARMOR_CHEST_INDEX);
+        if (chest != null && !chest.isEmpty() && chest.is(Items.ELYTRA)) return true;
         FindItemResult found = InvUtils.find(Items.ELYTRA);
         if (!found.found()) return false;
         InvUtils.move().from(found.slot()).toArmor(ARMOR_CHEST_INDEX);
@@ -756,40 +754,40 @@ public class AirLanding extends Module {
         List<BlockPos> out = new ArrayList<>(20);
 
         out.add(corner);
-        out.add(corner.add(1, 0, 0));
-        out.add(corner.add(0, 0, 1));
-        out.add(corner.add(1, 0, 1));
+        out.add(corner.offset(1, 0, 0));
+        out.add(corner.offset(0, 0, 1));
+        out.add(corner.offset(1, 0, 1));
 
         for (int yOff = 1; yOff <= 2; yOff++) {
-            out.add(corner.add(0, yOff, -1));
-            out.add(corner.add(1, yOff, -1));
+            out.add(corner.offset(0, yOff, -1));
+            out.add(corner.offset(1, yOff, -1));
 
-            out.add(corner.add(0, yOff, 2));
-            out.add(corner.add(1, yOff, 2));
+            out.add(corner.offset(0, yOff, 2));
+            out.add(corner.offset(1, yOff, 2));
 
-            out.add(corner.add(-1, yOff, 0));
-            out.add(corner.add(-1, yOff, 1));
+            out.add(corner.offset(-1, yOff, 0));
+            out.add(corner.offset(-1, yOff, 1));
 
-            out.add(corner.add(2, yOff, 0));
-            out.add(corner.add(2, yOff, 1));
+            out.add(corner.offset(2, yOff, 0));
+            out.add(corner.offset(2, yOff, 1));
         }
 
         return out;
     }
 
     private boolean placeOne(BlockPos pos) {
-        if (mc == null || mc.player == null || mc.world == null) return false;
-        if (mc.world.getBlockState(pos).isOf(block.get())) return true;
+        if (mc == null || mc.player == null || mc.level == null) return false;
+        if (mc.level.getBlockState(pos).is(block.get())) return true;
         if (!ensureBlockInMainHand()) return false;
 
-        BlockHitResult bhr = new BlockHitResult(Vec3d.ofCenter(pos), Direction.UP, pos, false);
+        BlockHitResult bhr = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
 
-        mc.player.networkHandler.sendPacket(new PlayerActionC2SPacket(
-            PlayerActionC2SPacket.Action.SWAP_ITEM_WITH_OFFHAND, BlockPos.ORIGIN, Direction.DOWN));
-        mc.player.networkHandler.sendPacket(new PlayerInteractBlockC2SPacket(
-            Hand.OFF_HAND, bhr, mc.player.currentScreenHandler.getRevision() + 2));
-        mc.player.networkHandler.sendPacket(new PlayerActionC2SPacket(
-            PlayerActionC2SPacket.Action.SWAP_ITEM_WITH_OFFHAND, BlockPos.ORIGIN, Direction.DOWN));
+        mc.player.connection.send(new ServerboundPlayerActionPacket(
+            ServerboundPlayerActionPacket.Action.SWAP_ITEM_WITH_OFFHAND, BlockPos.ZERO, Direction.DOWN));
+        mc.player.connection.send(new ServerboundUseItemOnPacket(
+            InteractionHand.OFF_HAND, bhr, mc.player.containerMenu.getStateId() + 2));
+        mc.player.connection.send(new ServerboundPlayerActionPacket(
+            ServerboundPlayerActionPacket.Action.SWAP_ITEM_WITH_OFFHAND, BlockPos.ZERO, Direction.DOWN));
 
         return true;
     }
@@ -797,7 +795,7 @@ public class AirLanding extends Module {
     private boolean ensureBlockInMainHand() {
         if (mc.player == null) return false;
 
-        ItemStack main = mc.player.getMainHandStack();
+        ItemStack main = mc.player.getMainHandItem();
         if (isDesiredBlockItem(main)) return true;
 
         FindItemResult found = InvUtils.find(block.get().asItem());
@@ -806,24 +804,24 @@ public class AirLanding extends Module {
         if (found.isMainHand()) return true;
 
         if (found.isHotbar()) {
-            mc.player.getInventory().selectedSlot = found.slot();
+            mc.player.getInventory().setSelectedSlot(found.slot());
             preferredBlockSlot = found.slot();
-            return isDesiredBlockItem(mc.player.getMainHandStack());
+            return isDesiredBlockItem(mc.player.getMainHandItem());
         }
 
         int targetSlot = getFreeHotbarSlotExcluding(-1);
         InvUtils.move().from(found.slot()).toHotbar(targetSlot);
-        mc.player.getInventory().selectedSlot = targetSlot;
+        mc.player.getInventory().setSelectedSlot(targetSlot);
         preferredBlockSlot = targetSlot;
 
-        return isDesiredBlockItem(mc.player.getMainHandStack());
+        return isDesiredBlockItem(mc.player.getMainHandItem());
     }
 
     private int findRocketInHotbar() {
         if (mc.player == null) return -1;
         for (int i = 0; i < 9; i++) {
-            ItemStack s = mc.player.getInventory().getStack(i);
-            if (s != null && !s.isEmpty() && s.isOf(Items.FIREWORK_ROCKET)) return i;
+            ItemStack s = mc.player.getInventory().getItem(i);
+            if (s != null && !s.isEmpty() && s.is(Items.FIREWORK_ROCKET)) return i;
         }
         return -1;
     }
@@ -838,9 +836,9 @@ public class AirLanding extends Module {
     private int countRocketsInInventory() {
         if (mc.player == null) return -1;
         int total = 0;
-        for (int i = 0; i < mc.player.getInventory().size(); i++) {
-            ItemStack s = mc.player.getInventory().getStack(i);
-            if (s != null && !s.isEmpty() && s.isOf(Items.FIREWORK_ROCKET)) total += s.getCount();
+        for (int i = 0; i < mc.player.getInventory().getContainerSize(); i++) {
+            ItemStack s = mc.player.getInventory().getItem(i);
+            if (s != null && !s.isEmpty() && s.is(Items.FIREWORK_ROCKET)) total += s.getCount();
         }
         return total;
     }
@@ -862,13 +860,13 @@ public class AirLanding extends Module {
         return ((BlockItem) s.getItem()).getBlock() == block.get();
     }
     private int getFreeHotbarSlotExcluding(int exclude) {
-        int selected = mc.player.getInventory().selectedSlot;
+        int selected = mc.player.getInventory().getSelectedSlot();
         for (int i = 0; i < 9; i++) {
             if (i == exclude) continue;
-            if (mc.player.getInventory().getStack(i).isEmpty()) return i;
+            if (mc.player.getInventory().getItem(i).isEmpty()) return i;
         }
         if (selected != exclude) {
-            ItemStack cur = mc.player.getInventory().getStack(selected);
+            ItemStack cur = mc.player.getInventory().getItem(selected);
             if (cur.isEmpty()) return selected;
         }
         for (int i = 0; i < 9; i++) if (i != exclude) return i;
@@ -898,7 +896,7 @@ public class AirLanding extends Module {
         centerKeepsQueue = keepQueue;
         phase = Phase.CENTERING;
         centeringTicks = 0;
-        try { mc.options.forwardKey.setPressed(false); } catch (Throwable ignored) {}
+        try { mc.options.keyUp.setDown(false); } catch (Throwable ignored) {}
     }
 
 

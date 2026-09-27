@@ -1,12 +1,13 @@
 package com.milky.hunt.modules;
 
+import meteordevelopment.meteorclient.MeteorClient;
 import com.milky.hunt.Addon;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.settings.*;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
 import meteordevelopment.orbit.EventPriority;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 
 import static meteordevelopment.meteorclient.MeteorClient.mc;
 
@@ -118,7 +119,7 @@ public class SpiralFlight extends Module {
 
     @Override
     public void onActivate() {
-        if (mc.player == null || mc.world == null) { toggle(); return; }
+        if (mc.player == null || mc.level == null) { toggle(); return; }
         centerXrt = mc.player.getX();
         centerZrt = mc.player.getZ();
         thetaOnPath = 0.0;
@@ -133,7 +134,7 @@ public class SpiralFlight extends Module {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     private void onTick(TickEvent.Pre event) {
-        if (mc.player == null || mc.world == null) return;
+        if (mc.player == null || mc.level == null) return;
         if (phase != Phase.SPIRAL) return;
 
         final double qx = mc.player.getX(), qz = mc.player.getZ();
@@ -188,14 +189,14 @@ public class SpiralFlight extends Module {
     }
 
     private void faceYawSmooth(float yawTargetDeg, float maxDeltaDeg) {
-        float yaw = mc.player.getYaw();
+        float yaw = mc.player.getYRot();
         float diff = wrapDeg(yawTargetDeg - yaw);
         if (maxDeltaDeg <= 0f) {
-            mc.player.setYaw(yaw + diff);
+            mc.player.setYRot(yaw + diff);
             return;
         }
-        float step = MathHelper.clamp(diff, -maxDeltaDeg, maxDeltaDeg);
-        mc.player.setYaw(yaw + step);
+        float step = Mth.clamp(diff, -maxDeltaDeg, maxDeltaDeg);
+        mc.player.setYRot(yaw + step);
     }
 
     private static float wrapDeg(double deg) {

@@ -1,5 +1,8 @@
 # Milky Mod
-Meteor Addon For minecraft 1.21.4
+Meteor Addon For Minecraft 26.1.2
+
+> **本分支是 26.1.2 移植版（fork）**：构建链升到 Loom 1.17 / Gradle 9.6.1 / JDK 25，源码从 Yarn 名整体迁移到 26.1 起的官方未混淆名，并修完 Meteor API 漂移（含 4 个 mixin 与 2 处反射）。
+> 迁移明细、API 对照表与复现命令见 [`docs/PORT-NOTES.md`](docs/PORT-NOTES.md)。
 
 This mod may include copy-pasted code from Meteor, Hybridious, Jeff Mod, Trouser Streak, Zenith Proxy and others.
 

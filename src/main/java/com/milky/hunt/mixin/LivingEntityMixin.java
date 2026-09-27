@@ -1,12 +1,14 @@
 package com.milky.hunt.mixin;
 
+import meteordevelopment.meteorclient.MeteorClient;
 import com.milky.hunt.modules.BoostedBounce;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.systems.modules.Modules;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.ai.brain.Brain;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.Brain;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -19,26 +21,37 @@ import static meteordevelopment.meteorclient.utils.player.ChatUtils.info;
 public abstract class LivingEntityMixin
 {
     @Shadow
-    private int jumpingCooldown;
+    private int noJumpDelay;
 
     @Shadow
     public abstract Brain<?> getBrain();
 
-    BoostedBounce efly = Modules.get().get(BoostedBounce.class);
+    @Unique
+    private BoostedBounce efly = null;
 
-    @Inject(at = @At("HEAD"), method = "Lnet/minecraft/entity/LivingEntity;tickMovement()V")
-    private void tickMovement(CallbackInfo ci)
+    /** 启动早期 Modules.get() 可能为 null，必须懒取 */
+    private BoostedBounce efly() {
+        if (efly == null) {
+            var mods = Modules.get();
+            if (mods != null) efly = mods.get(BoostedBounce.class);
+        }
+        return efly;
+    }
+
+
+    @Inject(at = @At("HEAD"), method = "Lnet/minecraft/world/entity/LivingEntity;aiStep()V")
+    private void aiStep(CallbackInfo ci)
     {
-        if (mc.player != null && mc.player.getBrain().equals(this.getBrain()) && efly != null && efly.enabled())
+        if (mc.player != null && mc.player.getBrain().equals(this.getBrain()) && efly() != null && efly().enabled())
         {
-            this.jumpingCooldown = 0;
+            this.noJumpDelay = 0;
         }
     }
 
-    @Inject(at = @At("HEAD"), method = "Lnet/minecraft/entity/LivingEntity;isGliding()Z", cancellable = true)
-    private void isGliding(CallbackInfoReturnable<Boolean> cir)
+    @Inject(at = @At("HEAD"), method = "Lnet/minecraft/world/entity/LivingEntity;isFallFlying()Z", cancellable = true)
+    private void isFallFlying(CallbackInfoReturnable<Boolean> cir)
     {
-        if (mc.player != null && mc.player.getBrain().equals(this.getBrain()) && efly != null && efly.enabled())
+        if (mc.player != null && mc.player.getBrain().equals(this.getBrain()) && efly() != null && efly().enabled())
         {
             cir.setReturnValue(true);
         }
